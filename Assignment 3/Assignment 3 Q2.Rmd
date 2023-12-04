@@ -1,0 +1,66 @@
+---
+title: "Assignment 3 FE513"
+author: "Shubham Narkhede"
+date: "2023-11-30"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+##2. PostgreSQL API in R (50pt)
+#1. Make a connection to your local PostgreSQL database using API.
+
+```{r}
+
+#install.packages("RPostgres")
+
+```
+```{r}
+if(!require("RPostgres")){ # check for package existence 
+  install.packages("RPostgres")
+}
+library("RPostgres")
+```
+
+
+```{r}
+# R Code
+library(DBI)
+
+# create a connection
+con <- dbConnect(RPostgres::Postgres(), 
+                 dbname = "Assignment 3", 
+                 host = "localhost", 
+                 port = 5432, 
+                 user = "postgres", 
+                 password = '123')
+
+# list table in database
+dbListTables(con)
+
+```
+#2. Import the CSV file you got from Problem 1 (banks_total) into a new table in the database using API.
+
+
+```{r}
+# R Code
+dbWriteTable(con, "new_banks_total", read.csv("C:/Users/shubh.SHUBHAM_5260/Downloads/Practical Aspects of Database Design/banks_total.csv"))
+
+```
+
+#3. Retrieve the data of table 'new_banks_total' using API. Count how many rows in the table.
+
+```{r}
+# R Code
+result <- dbGetQuery(con, "SELECT * FROM new_banks_total")
+print(head(result))
+```
+
+
+```{r}
+num_rows <- dbGetQuery(con, "SELECT COUNT(*) FROM new_banks_total")$count
+
+print(num_rows)
+```
+
