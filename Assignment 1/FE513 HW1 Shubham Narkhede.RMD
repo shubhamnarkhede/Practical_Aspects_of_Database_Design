@@ -1,0 +1,278 @@
+---
+title: "FE 513 HW 1 SHUBHAM"
+author: "Shubham Narkhede- 20011019"
+date: "2023-09-30"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# PART 1
+
+## Part 1.1
+
+```{r}
+# Create two vectors with 10 random numbers each
+vector1 <- runif(10)
+print(vector1)
+```
+
+```{r}
+vector2 <- runif(10)
+print(vector2)
+```
+
+```{r}
+# Append the second vector to the first one
+combined_vector <- c(vector1, vector2)
+combined_vector
+```
+
+```{r}
+# Calculate the mean of the combined vector
+mean_combined <- mean(combined_vector)
+mean_combined
+```
+
+```{r}
+# Print 'True' if a number is greater than the mean, else 'False'
+result <- ifelse(combined_vector > mean_combined, 'True', 'False')
+print(result)
+```
+
+##PART 1.2
+
+```{r}
+# Create a vector with 100 random numbers
+vector_matrix <- runif(100)
+vector_matrix
+```
+
+```{r}
+# Transfer the vector into a 10 by 10 matrix M
+M <- matrix(vector_matrix, nrow = 10, ncol = 10)
+M
+```
+
+```{r}
+# Find the transpose of matrix M
+MT <- t(M)
+MT
+```
+
+```{r}
+# Print the value of the element in the second row and first column of MT
+value <- MT[2, 1]
+print(value)
+```
+
+```{r}
+# Calculate the inner product between MT and M using a nested loop
+N <- matrix(0, nrow = 10, ncol = 10)
+for (i in 1:10) {
+  for (j in 1:10) {
+    N[i, j] <- sum(MT[i,] * M[,j])
+  }
+}
+print(N)
+```
+
+```{r}
+# Calculate the same inner product using %*% operator
+N_operator <- MT %*% M
+print(N_operator)
+
+```
+
+#Part 1.3
+
+```{r}
+# Get the current working directory
+current_directory <- getwd()
+
+# Print the current directory
+print(current_directory)
+```
+
+```{r}
+analyze_stock_data <- function(file_path) {
+  # Load the CSV file 
+  data <- read.csv(file_path, header = TRUE)
+  data$X <- as.Date(data$X)
+  names(data)[names(data) == "X"] <- 'Date'
+  
+  # Remove columns with NA values
+  data_clean <- data[, colSums(is.na(data)) == 0]
+  
+  # Calculate daily log returns for each stock
+  log_stocks <- lapply(data_clean[2:26], function(x) diff(log(x)))
+  
+  # Calculate mean returns for each stock
+  mean_returns <- as.data.frame(sapply(X=log_stocks, FUN = mean))
+  mean_returns <- cbind(newColName = rownames(mean_returns), mean_returns)
+  colnames(mean_returns) <- c("Stock","Mean")
+  
+  # Calculate standard deviation of returns for each stock
+  sd_returns <- as.data.frame(sapply(X=log_stocks, FUN = sd))
+  sd_returns <- cbind(newColName = rownames(sd_returns), sd_returns)
+  colnames(sd_returns) <- c("Stock","SD")
+  
+  # Merge mean and standard deviation data frames
+  mean_sd_df <- merge(mean_returns, sd_returns, by = "Stock")
+  
+  # Load necessary libraries
+  library(reshape2)
+  library(ggpubr)
+  
+  # Reshape the data for plotting
+  first_three <- data[, 1:4]
+  df <- melt(first_three, id.vars = 'Date', variable.name = 'Stock', value.name = "Price")
+  
+  df2 <- melt(mean_sd_df, id.vars = 'Stock', variable.name = 'Stat', value.name = "Value")
+  
+  # Create line plot for stock prices over time
+  line_g <- ggplot(data = df, aes(x = Date, y = Price, colour = Stock)) +
+    geom_line() +
+    ggtitle("Price Over Time")
+  
+  # Create scatter plot for mean and standard deviation
+  point_g <- ggplot(data = df2, aes(x = Stock, y = Value, colour = Stat)) +
+    geom_point() +
+    ggtitle("Mean and SD") +
+    theme(axis.text.x = element_text(angle = 90), text = element_text(size = 7))
+  
+  # Arrange and display both plots
+  ggarrange(line_g, point_g)
+}
+
+# Call the function with the file path
+result_plots <- analyze_stock_data("stock_data-1.csv")
+
+# Display the resulting plots
+print(result_plots)
+
+```
+
+#Part 1.3 BONUS
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+library(ggpubr)
+
+analyze_stock_data <- function(file_path) {
+  # Load the CSV file and clean data
+  data <- read.csv(file_path, header = TRUE) %>%
+    mutate(Date = as.Date(X), .keep = "unused") %>%
+    select(-contains("NA")) %>%
+    select(Date, everything())
+  
+  # Calculate daily log returns for each stock
+  log_stocks <- data %>%
+    select(-Date) %>%
+    lapply(function(x) diff(log(x)))
+  
+  # Calculate mean returns for each stock
+  mean_returns <- log_stocks %>%
+    sapply(mean) %>%
+    data.frame(Stock = names(.), Mean = .)
+  
+  # Calculate standard deviation of returns for each stock
+  sd_returns <- log_stocks %>%
+    sapply(sd) %>%
+    data.frame(Stock = names(.), SD = .)
+  
+  # Merge mean and standard deviation data frames
+  mean_sd_df <- merge(mean_returns, sd_returns, by = "Stock")
+  
+  # Reshape the data for plotting
+  first_three <- data[, 1:4] %>%
+    melt(id.vars = "Date", variable.name = "Stock", value.name = "Price")
+  
+  df2 <- melt(mean_sd_df, id.vars = "Stock", variable.name = "Stat", value.name = "Value")
+  df2 <- na.omit(df2)  # Remove rows with missing values
+
+  # Create line plot for stock prices over time
+  line_g <- ggplot(data = first_three, aes(x = Date, y = Price, colour = Stock)) +
+    geom_line() +
+    ggtitle("Price Over Time")
+  
+  # Create scatter plot for mean and standard deviation
+  point_g <- ggplot(data = df2, aes(x = Stock, y = Value, colour = Stat)) +
+    geom_point() +
+    ggtitle("Mean and SD") +
+    theme(axis.text.x = element_text(angle = 90), text = element_text(size = 7))
+  point_g <- na.omit(point_g) 
+  
+  # Arrange and display both plots
+  ggarrange(line_g, point_g)
+}
+
+# Call the function with the file path
+result_plots <- analyze_stock_data("stock_data-1.csv")
+
+# Display the resulting plots
+print(result_plots)
+
+```
+
+#Part 2
+
+```{r}
+library("quantmod")
+
+# Part 2.1: Download AMZN stock data
+getSymbols(c("AMZN"), from = '2021-01-01',
+           to = "2021-09-01", warnings = FALSE,
+           auto.assign = TRUE)
+  
+# Convert AMZN data to a data frame
+AMZN <- data.frame(AMZN)
+  
+# Save the data to a CSV file
+write.csv(AMZN, file = "AMZN_stock_data_2021.csv")
+head(AMZN)
+```
+
+```{r}
+# Part 2.2: Calculate log returns
+  AMZN$log_returns <- c(0, diff(log(AMZN$AMZN.Close), lag = 1))
+  
+  # Part 2.3: Calculate mean, median, and standard deviation
+  mean_return <- mean(AMZN$log_returns)
+  mean_return
+```
+
+```{r}
+median_return <- median(AMZN$log_returns)
+  median_return
+```
+
+```{r}
+sd_return <- sd(AMZN$log_returns)
+  sd_return
+```
+
+```{r}
+# Part 2.4: Create a histogram
+  hist(AMZN$log_returns)
+```
+
+```{r}
+# Part 2.5: Calculate the range of log returns and create Log.Range column
+  amzn_range <- range(AMZN$log_returns)
+  range_diff <- amzn_range[2] - amzn_range[1]
+  range_diff
+```
+
+```{r}
+AMZN$Log.Range <- cut(AMZN$log_returns, breaks = seq(from = -0.07, to = 0.05, by = 0.005))
+  log_range_count <- length(AMZN$Log.Range[AMZN$Log.Range == "(0.01,0.015]"])
+
+log_range_count
+
+```
