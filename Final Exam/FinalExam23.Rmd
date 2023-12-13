@@ -1,0 +1,173 @@
+---
+title: "Final Exam FE513"
+author: "Shubham Narkhede"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+if(!require("quantmod")){ # check for package existence 
+  install.packages("quantmod")
+}
+library("quantmod")
+```
+
+
+```{r}
+if(!require("zoo")){ # check for package existence 
+  install.packages("zoo")
+}
+library("zoo")
+```
+```{r}
+if(!require("ggplot2")){ # check for package existence 
+  install.packages("ggplot2")
+}
+library(ggplot2)
+```
+
+Question 2 
+
+```{r}
+get_stock_statistics <- function(ticker, start_date, end_date, rolling_window) {
+  # Step 1: Download daily stock data
+  start_date = as.Date(start_date)
+  end_date = as.Date(end_date)
+  getSymbols(ticker, src = "yahoo", from = start_date, to = end_date)
+  stocks = get(ticker)
+  
+  # Step 2: Get the adjusted close price
+  stocks = stocks[, 6]
+  
+  # Step 3: Perform rolling window estimation
+  count = length(stocks)
+  avg = vector()
+  standard_dev = vector()
+  
+  for (i in 1:(count - rolling_window + 1)) {
+    arr = stocks[i:(i + rolling_window - 1)]
+    avg = c(avg, mean(arr))
+    standard_dev = c(standard_dev, sd(arr))
+  }
+  
+  # Step 4: Store the statistical result into a dataframe
+  df = data.frame(Index = seq_along(avg), Mean = avg, Standard_Deviation = standard_dev)
+  
+  # Step 5: Plot the statistical dataframe using a scatter plot
+  gg <- ggplot(df, aes(x = Index)) +
+    geom_point(aes(y = Mean, color = "Mean"), size = 2) +
+    geom_point(aes(y = Standard_Deviation, color = "Standard Deviation"), size = 2) +
+    labs(title = "Scatter Plot of Mean and Standard Deviation",
+         x = "Index",
+         y = "Values") +
+    scale_color_manual(name = "Statistical Values",
+                       values = c("Mean" = "blue", "Standard Deviation" = "red")) +
+    theme_minimal()
+  
+  # Explicitly print the plot
+  print(gg)
+  
+  # Step 6: Return the statistical dataframe
+  return(df)
+}
+```
+
+
+```{r}
+# Step 7: Test the function with suitable parameters
+start_date <- "2022-01-01"
+end_date <- Sys.Date()
+stock_ticker <- "AAPL"
+window_size <- 20
+
+result_df <- get_stock_statistics(stock_ticker, start_date, end_date, window_size)
+```
+
+
+```{r}
+head(result_df,10)
+```
+
+
+
+
+
+
+Question 3
+
+
+```{r}
+if(!require("RPostgreSQL")){ # check for package existence 
+  install.packages("RPostgreSQL")
+}
+library("RPostgreSQL")
+```
+
+
+```{r}
+library(RPostgreSQL)
+library(DBI)
+
+# 1. Make a connection to your local PostgreSQL database.
+con <- dbConnect(RPostgres::Postgres(), 
+                 dbname = "FinalExam", 
+                 host = "localhost", 
+                 port = 5432, 
+                 user = "postgres", 
+                 password = '123')
+
+# 2. Query the PostgreSQL database via API to get the original bank data.
+query <- "SELECT * FROM bank_data"
+bank_data_df <- dbGetQuery(con, query)
+head(bank_data_df)
+```
+
+```{r}
+if(!require("dplyr")){ # check for package existence 
+  install.packages("dplyr")
+}
+library("dplyr")
+
+```
+
+```{r}
+# 3. Calculate asset growth rate for each quarter and each bank.
+bank_data_df$date <- as.Date(bank_data_df$date)
+
+bank_data_df <- bank_data_df[order(bank_data_df$id, bank_data_df$date), ]  # Ensure data is sorted by bank id and date
+
+
+# Calculate asset growth rate excluding the first quarter
+bank_data_df_growth_rate <- bank_data_df %>%
+  arrange(id, date) %>%
+  group_by(id) %>%
+  mutate(
+    previous_asset = lag(asset),
+    asset_growth_rate = (asset - previous_asset) / previous_asset
+  ) %>%
+  filter(!is.na(asset_growth_rate))
+
+# Display the first 10 rows of the resulting data frame
+head(bank_data_df_growth_rate, 10)
+```
+
+
+```{r}
+# 4. Export the dataframe of Q 3.3 to the PostgreSQL database via API
+# Delete the existing table if it exists
+dbExecute(con, "DROP TABLE IF EXISTS asset_growth_rate_table")
+
+dbWriteTable(con, name = "asset_growth_rate_table", value = bank_data_df_growth_rate, row.names = FALSE, overwrite = TRUE)
+
+query <- "SELECT * FROM asset_growth_rate_table"
+asset_growth_rate_df <- dbGetQuery(con, query)
+head(asset_growth_rate_df)
+```
+
+
+```{r}
+# Close the database connection
+dbDisconnect(con)
+
+```
+
